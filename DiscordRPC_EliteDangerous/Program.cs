@@ -11,6 +11,7 @@ using Somfic.Logging.Console.Themes;
 using DiscordRPC;
 using System.Linq;
 using System.Threading;
+using EliteAPI.Event.Models;
 
 namespace DiscordRPC_EliteDangerous
 {
@@ -40,9 +41,19 @@ namespace DiscordRPC_EliteDangerous
             api = ActivatorUtilities.CreateInstance<EliteDangerousAPI>(host.Services);
 
             //Subscribe event handlers to API
-            EventHandlers.Exploration exploration = new EventHandlers.Exploration();
-            api.Events.FSDJumpEvent += exploration.FSDJumpEvent;
+            //Navigation
+            EventHandlers.Navigation nav = new EventHandlers.Navigation();
+            api.Events.FSDJumpEvent += nav.FSDJumpEvent;
+            api.Events.SupercruiseEntryEvent += nav.SupercruiseEntryEvent;
+            api.Events.SupercruiseExitEvent += nav.SupercruiseExitEvent;
+            //Exploration
 
+            //Combat
+
+            //Other
+            EventHandlers.Other other = new EventHandlers.Other();
+            api.Events.MusicEvent += other.MusicEvent;
+            
             //Start API
             await api.StartAsync();
 
@@ -65,13 +76,42 @@ namespace DiscordRPC_EliteDangerous
         //Will contain all event handlers, nested classes used for organisation
         class EventHandlers
         {
-            public class Exploration
+            public class Navigation
             {
                 public void FSDJumpEvent(object sender, FSDJumpEvent e)
                 {
                     //Occurs when a jump concludes
                     Debug.WriteLine(string.Format("FSD JUMP EVENT!!!! {0}, {1}, {2}, {3}", e.Event, e.Body, e.BoostUsed, e.JumpDist));
-                    discord.PresenceBottomText = DateTime.Compare(e.Timestamp, DateTime.Now).ToString(); //debug - test if the event is stale or recent
+                    discord.TopText = e.StarSystem;
+                    discord.BottomText = "In Supercruise";
+                }
+                public void SupercruiseEntryEvent(object sender, SupercruiseEntryEvent e)
+                {
+                    discord.TopText = e.StarSystem;
+                    discord.BottomText = "In Supercruise";
+                }
+                public void SupercruiseExitEvent(object sender, SupercruiseExitEvent e)
+                {
+                    discord.TopText = e.StarSystem;
+                    discord.BottomText = "In normal space";
+                }
+            }
+            public class Other
+            {
+                public void MusicEvent(object sender, MusicEvent e)
+                {
+                    switch (e.MusicTrack)
+                    {
+                        case "Main Menu":
+                            discord.BottomText = "In Main Menu";
+                            break;
+                        case "Codex":
+                            discord.BottomText = "Reading the Codex";
+                            break;
+                        default:
+                            discord.BottomText = e.MusicTrack;
+                            break;
+                    }
                 }
             }
         }
@@ -103,8 +143,8 @@ namespace DiscordRPC_EliteDangerous
         public bool Online=false;
 
         //Presence text, updated from API events. Once the API supports reading the current player state on demand, we can replace default values with actual information in the constructor.
-        public string PresenceTopText = "Unknown location"; //Should contain the star system name
-        public string PresenceBottomText = "Unknown condition"; //Current action (docking, supercruise, jumping, fighting, using DSS, etc)
+        public string TopText = "Waiting for data..."; //Should contain the star system name
+        public string BottomText = ""; //Current action (docking, supercruise, jumping, fighting, using DSS, etc)
 
         //Called periodically to refresh the presence by the main loop
         public void Update()
@@ -113,8 +153,8 @@ namespace DiscordRPC_EliteDangerous
 
             RichPresence presence = new RichPresence
             {
-                Details = PresenceTopText,
-                State = PresenceBottomText,
+                Details = TopText,
+                State = BottomText,
                 Assets = new Assets()
                 {
                     LargeImageKey = "edlogo",
