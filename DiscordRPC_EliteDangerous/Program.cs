@@ -22,7 +22,6 @@ namespace DiscordRPC_EliteDangerous
         //Adapted from sample code
         private static async Task Main(string[] args)
         {
-            //Start Discord Rich Presence
             discord = new DiscordRichPresence("746041178603913227");
 
             IHost host = Host.CreateDefaultBuilder()
@@ -47,11 +46,19 @@ namespace DiscordRPC_EliteDangerous
             //Start API
             await api.StartAsync();
 
+            //Turn on and off when the game is running and periodically update
             while (true)
             {
                 Thread.Sleep(1500);
-                if (!discord.Online) continue; //wait for a connection
-                discord.Update();
+                if (Process.GetProcessesByName("EliteDangerous64").Count() > 0)
+                {
+                    discord.TurnOn();
+                    discord.Update();
+                }
+                else
+                {
+                    discord.TurnOff();
+                }
             }
         }
 
@@ -78,13 +85,11 @@ namespace DiscordRPC_EliteDangerous
         public DiscordRichPresence(string AppID)
         {
             rpc = new DiscordRpcClient(AppID);
-            TurnOn();
         }
         public void TurnOn()
         {
             if (Online) return;
             rpc.Initialize();
-            Update();
             Online = true;
         }
         public void TurnOff()
@@ -104,6 +109,8 @@ namespace DiscordRPC_EliteDangerous
         //Called periodically to refresh the presence by the main loop
         public void Update()
         {
+            if (!Online) return;
+
             RichPresence presence = new RichPresence
             {
                 Details = PresenceTopText,
