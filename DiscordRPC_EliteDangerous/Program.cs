@@ -9,6 +9,7 @@ using Somfic.Logging.Console;
 using Somfic.Logging.Console.Themes;
 using System.Diagnostics;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -22,7 +23,7 @@ namespace DiscordRPC_EliteDangerous
         //Adapted from sample code
         private static async Task Main()
         {
-            discord = new DiscordRichPresence("746041178603913227");
+            discord = new DiscordRichPresence("746041178603913227"); //Replace with your Discord App ID
 
             IHost host = Host.CreateDefaultBuilder()
                 .ConfigureLogging((context, logger) =>
@@ -39,32 +40,36 @@ namespace DiscordRPC_EliteDangerous
 
             api = ActivatorUtilities.CreateInstance<EliteDangerousAPI>(host.Services);
 
-            //Subscribe event handlers to API
-            //Navigation
-            EventHandlers.Movement nav = new EventHandlers.Movement();
-            api.Events.LocationEvent += nav.LocationEvent;
-            api.Events.StartJumpEvent += nav.StartJumpEvent;
-            api.Events.FSDJumpEvent += nav.FSDJumpEvent;
-            api.Events.SupercruiseEntryEvent += nav.SupercruiseEntryEvent;
-            api.Events.SupercruiseExitEvent += nav.SupercruiseExitEvent;
-            //Exploration
+            //Subscribe various event handlers to API
+            //Hyperspace
+            GameEventHandlers.FSD fsd = new GameEventHandlers.FSD();
+            api.Events.StartJumpEvent += fsd.StartJumpEvent;
+            api.Events.FSDJumpEvent += fsd.FSDJumpEvent;
+            api.Events.SupercruiseEntryEvent += fsd.SupercruiseEntryEvent;
+            api.Events.SupercruiseExitEvent += fsd.SupercruiseExitEvent;
 
-            //Combat
-            EventHandlers.Combat combat = new EventHandlers.Combat();
+            //Exploration - Star/planet scanning
 
-            //Other
-            EventHandlers.Other other = new EventHandlers.Other();
-            api.Events.MusicEvent += other.MusicEvent;
-            api.Events.SelfDestructEvent += other.SelfDestructEvent;
-            api.Events.RebootRepairEvent += other.RebootRepairEvent;
+            //Combat - Interdiction, "Under attack", etc
+            GameEventHandlers.Combat combat = new GameEventHandlers.Combat();
+            api.Events.SelfDestructEvent += combat.SelfDestructEvent;
 
-            //Start API
+            //Meta - Being in the main menu, reading the Codex, logging on, etc
+            GameEventHandlers.Meta meta = new GameEventHandlers.Meta();
+            api.Events.LocationEvent += meta.LocationEvent;
+            api.Events.MusicEvent += meta.MusicEvent;
+
+            //Maintenance - Ship diagnostics and repairs
+            GameEventHandlers.Maintenance repairs = new GameEventHandlers.Maintenance();
+            api.Events.RebootRepairEvent += repairs.RebootRepairEvent;
+
+            //Start the API
             await api.StartAsync();
 
-            //Turn on and off when the game is running and periodically update
+            //Turn rich presence on and off when the game is running and periodically update
             while (true)
             {
-                Thread.Sleep(1500);
+                Thread.Sleep(500);
                 if (Process.GetProcessesByName("EliteDangerous64").Count() > 0)
                 {
                     discord.TurnOn();
@@ -78,16 +83,11 @@ namespace DiscordRPC_EliteDangerous
         }
 
         //Will contain all event handlers, nested classes used for organisation
-        class EventHandlers
+        class GameEventHandlers
         {
 #pragma warning disable IDE0060 // Remove unused parameter 'object s'
-            public class Movement
+            public class FSD
             {
-                public void LocationEvent(object s, LocationEvent e)
-                {
-                    discord.TopText = e.StarSystem;
-                    discord.BottomText = "Logged on";
-                }
                 public void StartJumpEvent(object s, StartJumpEvent e)
                 {
                     //Occurs when a jump commences
@@ -118,9 +118,27 @@ namespace DiscordRPC_EliteDangerous
             }
             public class Combat
             {
+                public void SelfDestructEvent(object s, SelfDestructEvent e)
+                {
+                    //"If I can't sell this cargo, then nobody can!"
+                    discord.BottomText = "Self destructed";
+                }
             }
-            public class Other
+            public class Maintenance
             {
+                public void RebootRepairEvent(object s, RebootRepairEvent e)
+                {
+                    discord.BottomText = "Rebooted ship";
+                }
+                //Limpet event maybe - "Being saved by Fuel Rats"
+            }
+            public class Meta
+            {
+                public void LocationEvent(object s, LocationEvent e)
+                {
+                    discord.TopText = e.StarSystem;
+                    discord.BottomText = "Logged on";
+                }
                 public void MusicEvent(object s, MusicEvent e)
                 {
                     switch (e.MusicTrack)
@@ -131,15 +149,10 @@ namespace DiscordRPC_EliteDangerous
                         case "Codex":
                             discord.BottomText = "Reading the Codex";
                             break;
+                        case "GalaxyMap":
+                            discord.BottomText = "Reading the Galaxy Map";
+                            break;
                     }
-                }
-                public void SelfDestructEvent(object s, SelfDestructEvent e)
-                {
-                    discord.BottomText = "Self destructed";
-                }
-                public void RebootRepairEvent(object s, RebootRepairEvent e)
-                {
-                    discord.BottomText = "Rebooted ship";
                 }
             }
 #pragma warning restore IDE0060 // Remove unused parameter 'object s'
@@ -175,24 +188,34 @@ namespace DiscordRPC_EliteDangerous
         public string TopText = "Waiting for data..."; //Should contain the star system name
         public string BottomText = ""; //Current action (docking, supercruise, jumping, fighting, using DSS, etc)
 
-        //Called periodically to refresh the presence by the main loop
+        private string _top;
+        private string _bottom;
+        //Called periodically by the main loop to refresh the presence text
         public void Update()
         {
             if (!Online) return;
 
-            RichPresence presence = new RichPresence
+            if (_top != TopText || _bottom != BottomText)
             {
-                Details = TopText,
-                State = BottomText,
-                Assets = new Assets()
+                //To prevent spamming Discord's servers, only send data when it updates. 
+                _top = TopText;
+                _bottom = BottomText;
+
+                RichPresence presence = new RichPresence
                 {
-                    LargeImageKey = "edlogo",
-                    LargeImageText = "Fly Dangerously!",
-                    SmallImageKey = "edlogo",
-                    SmallImageText = ""
-                }
-            };
-            rpc.SetPresence(presence);
+                    Details = TopText,
+                    State = BottomText,
+                    Assets = new Assets()
+                    {
+                        //You can customise these however you want
+                        LargeImageKey = "edlogo",
+                        LargeImageText = "Fly Dangerously!",
+                        SmallImageKey = "edlogo" /*,
+                        SmallImageText = "" */
+                    }
+                };
+                rpc.SetPresence(presence);
+            }
         }
     }
 }
