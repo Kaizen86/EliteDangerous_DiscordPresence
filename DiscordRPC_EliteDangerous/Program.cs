@@ -1,17 +1,16 @@
-﻿using System;
-using System.Diagnostics;
-using System.Threading.Tasks;
+﻿using DiscordRPC;
 using EliteAPI;
+using EliteAPI.Event.Models;
 using EliteAPI.Event.Models.Travel;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Somfic.Logging.Console;
 using Somfic.Logging.Console.Themes;
-using DiscordRPC;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
-using EliteAPI.Event.Models;
+using System.Threading.Tasks;
 
 namespace DiscordRPC_EliteDangerous
 {
@@ -21,7 +20,7 @@ namespace DiscordRPC_EliteDangerous
         static DiscordRichPresence discord;
 
         //Adapted from sample code
-        private static async Task Main(string[] args)
+        private static async Task Main()
         {
             discord = new DiscordRichPresence("746041178603913227");
 
@@ -42,18 +41,23 @@ namespace DiscordRPC_EliteDangerous
 
             //Subscribe event handlers to API
             //Navigation
-            EventHandlers.Navigation nav = new EventHandlers.Navigation();
+            EventHandlers.Movement nav = new EventHandlers.Movement();
+            api.Events.LocationEvent += nav.LocationEvent;
+            api.Events.StartJumpEvent += nav.StartJumpEvent;
             api.Events.FSDJumpEvent += nav.FSDJumpEvent;
             api.Events.SupercruiseEntryEvent += nav.SupercruiseEntryEvent;
             api.Events.SupercruiseExitEvent += nav.SupercruiseExitEvent;
             //Exploration
 
             //Combat
+            EventHandlers.Combat combat = new EventHandlers.Combat();
 
             //Other
             EventHandlers.Other other = new EventHandlers.Other();
             api.Events.MusicEvent += other.MusicEvent;
-            
+            api.Events.SelfDestructEvent += other.SelfDestructEvent;
+            api.Events.RebootRepairEvent += other.RebootRepairEvent;
+
             //Start API
             await api.StartAsync();
 
@@ -76,29 +80,48 @@ namespace DiscordRPC_EliteDangerous
         //Will contain all event handlers, nested classes used for organisation
         class EventHandlers
         {
-            public class Navigation
+#pragma warning disable IDE0060 // Remove unused parameter 'object s'
+            public class Movement
             {
-                public void FSDJumpEvent(object sender, FSDJumpEvent e)
+                public void LocationEvent(object s, LocationEvent e)
+                {
+                    discord.TopText = e.StarSystem;
+                    discord.BottomText = "Logged on";
+                }
+                public void StartJumpEvent(object s, StartJumpEvent e)
+                {
+                    //Occurs when a jump commences
+                    if (e.JumpType == "Hyperspace") 
+                    {
+                        discord.TopText = "Jumping to " + e.StarSystem;
+                        discord.BottomText = "";
+                    }
+                    else
+                        discord.BottomText = "Engaging Supercruise...";
+                }
+                public void FSDJumpEvent(object s, FSDJumpEvent e)
                 {
                     //Occurs when a jump concludes
-                    Debug.WriteLine(string.Format("FSD JUMP EVENT!!!! {0}, {1}, {2}, {3}", e.Event, e.Body, e.BoostUsed, e.JumpDist));
                     discord.TopText = e.StarSystem;
                     discord.BottomText = "In Supercruise";
                 }
-                public void SupercruiseEntryEvent(object sender, SupercruiseEntryEvent e)
+                public void SupercruiseEntryEvent(object s, SupercruiseEntryEvent e)
                 {
                     discord.TopText = e.StarSystem;
                     discord.BottomText = "In Supercruise";
                 }
-                public void SupercruiseExitEvent(object sender, SupercruiseExitEvent e)
+                public void SupercruiseExitEvent(object s, SupercruiseExitEvent e)
                 {
                     discord.TopText = e.StarSystem;
                     discord.BottomText = "In normal space";
                 }
             }
+            public class Combat
+            {
+            }
             public class Other
             {
-                public void MusicEvent(object sender, MusicEvent e)
+                public void MusicEvent(object s, MusicEvent e)
                 {
                     switch (e.MusicTrack)
                     {
@@ -108,19 +131,25 @@ namespace DiscordRPC_EliteDangerous
                         case "Codex":
                             discord.BottomText = "Reading the Codex";
                             break;
-                        default:
-                            discord.BottomText = e.MusicTrack;
-                            break;
                     }
                 }
+                public void SelfDestructEvent(object s, SelfDestructEvent e)
+                {
+                    discord.BottomText = "Self destructed";
+                }
+                public void RebootRepairEvent(object s, RebootRepairEvent e)
+                {
+                    discord.BottomText = "Rebooted ship";
+                }
             }
+#pragma warning restore IDE0060 // Remove unused parameter 'object s'
         }
     }
 
     //Responsible for Discord RPC stuff
     class DiscordRichPresence
     {
-        private DiscordRpcClient rpc;
+        private readonly DiscordRpcClient rpc;
         //Start/stop the client
         public DiscordRichPresence(string AppID)
         {
