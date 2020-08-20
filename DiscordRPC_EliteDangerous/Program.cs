@@ -93,17 +93,17 @@ namespace DiscordRPC_EliteDangerous
                     //Occurs when a jump commences
                     if (e.JumpType == "Hyperspace") 
                     {
-                        discord.TopText = "Jumping to " + e.StarSystem;
-                        discord.BottomText = "";
+                        discord.TopText = "Jumping to system:";
+                        discord.BottomText = e.StarSystem;
                     }
                     else
-                        discord.BottomText = "Engaging Supercruise...";
+                        discord.BottomText = "Engaging Supercruise";
                 }
                 public void FSDJumpEvent(object s, FSDJumpEvent e)
                 {
                     //Occurs when a jump concludes
                     discord.TopText = e.StarSystem;
-                    discord.BottomText = "In Supercruise";
+                    discord.BottomText = "Just arrived";
                 }
                 public void SupercruiseEntryEvent(object s, SupercruiseEntryEvent e)
                 {
@@ -131,19 +131,22 @@ namespace DiscordRPC_EliteDangerous
                     discord.BottomText = "Rebooted ship";
                 }
                 //Limpet event maybe - "Being saved by Fuel Rats"
+                //Fuel scooping
             }
             public class Meta
             {
                 public void LocationEvent(object s, LocationEvent e)
                 {
                     discord.TopText = e.StarSystem;
-                    discord.BottomText = "Logged on";
+                    discord.BottomText = "Just logged on";
                 }
+                string BeforeMusicEvent = "";
                 public void MusicEvent(object s, MusicEvent e)
                 {
+                    if (BeforeMusicEvent.Length < 1) BeforeMusicEvent = discord.BottomText; //Only overwrite if it's empty - this prevents overwriting it before we read it back in the default case
                     switch (e.MusicTrack)
                     {
-                        case "Main Menu":
+                        case "MainMenu":
                             discord.BottomText = "In Main Menu";
                             break;
                         case "Codex":
@@ -151,6 +154,11 @@ namespace DiscordRPC_EliteDangerous
                             break;
                         case "GalaxyMap":
                             discord.BottomText = "Reading the Galaxy Map";
+                            break;
+                        default:
+                            //Once we return to Exploration (flying the ship), we need to show what we were doing before that.
+                            discord.BottomText = BeforeMusicEvent;
+                            BeforeMusicEvent = ""; //Clear it again ready for next time we enter a menu
                             break;
                     }
                 }
@@ -185,8 +193,8 @@ namespace DiscordRPC_EliteDangerous
         public bool Online=false;
 
         //Presence text, updated from API events. Once the API supports reading the current player state on demand, we can replace default values with actual information in the constructor.
-        public string TopText = "Waiting for data..."; //Should contain the star system name
-        public string BottomText = ""; //Current action (docking, supercruise, jumping, fighting, using DSS, etc)
+        public string TopText = "Initialised."; //Should contain the star system name
+        public string BottomText = "Waiting for data..."; //Current action (docking, supercruise, jumping, fighting, using DSS, etc)
 
         private string _top;
         private string _bottom;
