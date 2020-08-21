@@ -50,18 +50,27 @@ namespace DiscordRPC_EliteDangerous
 
             //Exploration - Star/planet scanning
 
+
             //Combat - Interdiction, "Under attack", etc
             GameEventHandlers.Combat combat = new GameEventHandlers.Combat();
             api.Events.SelfDestructEvent += combat.SelfDestructEvent;
 
-            //Meta - Being in the main menu, reading the Codex, logging on, etc
-            GameEventHandlers.Meta meta = new GameEventHandlers.Meta();
-            api.Events.LocationEvent += meta.LocationEvent;
-            api.Events.MusicEvent += meta.MusicEvent;
+            //Ship specific things like reboots, AFMUs, limpets, fuel scooping, etc
+            GameEventHandlers.Ship ship = new GameEventHandlers.Ship();
+            api.Events.RebootRepairEvent += ship.RebootRepairEvent;
+            api.Events.FuelScoopEvent += ship.FuelScoopEvent;
+            api.Events.AfmuRepairsEvent += ship.AfmuRepairsEvent;
 
-            //Maintenance - Ship diagnostics and repairs
-            GameEventHandlers.Maintenance repairs = new GameEventHandlers.Maintenance();
-            api.Events.RebootRepairEvent += repairs.RebootRepairEvent;
+            GameEventHandlers.Station station = new GameEventHandlers.Station();
+            api.Events.DockingGrantedEvent += station.DockingGrantedEvent;
+            api.Events.DockedEvent += station.DockedEvent;
+            api.Events.UndockedEvent += station.UndockedEvent;
+            api.Events.MusicEvent += station.MusicEvent;
+
+            //UI Events - Being in the main menu, reading the Codex, logging on, etc
+            GameEventHandlers.UIEvents ui = new GameEventHandlers.UIEvents();
+            api.Events.LocationEvent += ui.LocationEvent;
+            api.Events.MusicEvent += ui.MusicEvent;
 
             //Start the API
             await api.StartAsync();
@@ -91,7 +100,7 @@ namespace DiscordRPC_EliteDangerous
                 public void StartJumpEvent(object s, StartJumpEvent e)
                 {
                     //Occurs when a jump commences
-                    if (e.JumpType == "Hyperspace") 
+                    if (e.JumpType == "Hyperspace")
                     {
                         discord.TopText = "Jumping to system:";
                         discord.BottomText = e.StarSystem;
@@ -113,7 +122,9 @@ namespace DiscordRPC_EliteDangerous
                 public void SupercruiseExitEvent(object s, SupercruiseExitEvent e)
                 {
                     discord.TopText = e.StarSystem;
-                    discord.BottomText = "In normal space";
+                    //If we drop near something (star, planet, space station), say what it is
+                    if (e.Body == "") discord.BottomText = "In normal space"; //Otherwise, 
+                    else discord.BottomText = "Near " + e.Body;
                 }
             }
             public class Combat
@@ -124,16 +135,57 @@ namespace DiscordRPC_EliteDangerous
                     discord.BottomText = "Self destructed";
                 }
             }
-            public class Maintenance
+            public class Ship
             {
                 public void RebootRepairEvent(object s, RebootRepairEvent e)
                 {
                     discord.BottomText = "Rebooted ship";
                 }
                 //Limpet event maybe - "Being saved by Fuel Rats"
-                //Fuel scooping
+                public void FuelScoopEvent(object s, FuelScoopEvent e)
+                {
+                    discord.BottomText = "Finished scooping fuel";
+                }
+                public void AfmuRepairsEvent(object s, AfmuRepairsEvent e)
+                {
+                    discord.BottomText = string.Format("Repaired {0} to {1}%", e.ModuleLocalised, System.Math.Round(e.Health * 100, 0));
+                }
+                public void DiedEvent(object s, DiedEvent e) {}
             }
-            public class Meta
+            public class Station
+            {
+                bool docked = false;
+                public void DockingGrantedEvent(object s, DockingGrantedEvent e) 
+                {
+                    discord.BottomText = "Docking at "+e.StationName;
+                }
+                public void DockedEvent(object s, DockedEvent e) 
+                {
+                    docked = true;
+                    discord.BottomText = "Docked at " + e.StationName;
+                }
+                public void UndockedEvent(object s, UndockedEvent e) 
+                {
+                    docked = false;
+                    discord.BottomText = "Leaving " + e.StationName;
+                } 
+                public void MusicEvent(object s, MusicEvent e)
+                {
+                    //If using an autopilot, detect it with the music cue
+                    if (e.MusicTrack == "DockingComputer")
+                    {
+                        if (docked)
+                        {
+                            discord.BottomText = "Autopilot docking";
+                        }
+                        else
+                        {
+                            discord.BottomText = "Autopilot docking";
+                        }
+                    }
+                }
+            }
+            public class UIEvents
             {
                 public void LocationEvent(object s, LocationEvent e)
                 {
@@ -155,10 +207,13 @@ namespace DiscordRPC_EliteDangerous
                         case "GalaxyMap":
                             discord.BottomText = "Reading the Galaxy Map";
                             break;
-                        default:
-                            //Once we return to Exploration (flying the ship), we need to show what we were doing before that.
-                            discord.BottomText = BeforeMusicEvent;
-                            BeforeMusicEvent = ""; //Clear it again ready for next time we enter a menu
+                        case "SystemMap":
+                            discord.BottomText = "Reading the System Map";
+                            break;
+                        case "Exploration":
+                            //Once we return to flying the ship, we need to show that.
+                            discord.BottomText = BeforeMusicEvent; //Restore previous activity
+                            BeforeMusicEvent = ""; //Clear it again, ready for next time we enter a menu
                             break;
                     }
                 }
@@ -193,8 +248,8 @@ namespace DiscordRPC_EliteDangerous
         public bool Online=false;
 
         //Presence text, updated from API events. Once the API supports reading the current player state on demand, we can replace default values with actual information in the constructor.
-        public string TopText = "Initialised."; //Should contain the star system name
-        public string BottomText = "Waiting for data..."; //Current action (docking, supercruise, jumping, fighting, using DSS, etc)
+        public string TopText = "Initialised."; //Normally contains the star system name, but I'm not strict on that.
+        public string BottomText = "Waiting for data..."; //Current action (docking, supercruise, jumping, fighting, using DSS, etc). This will be updated most often
 
         private string _top;
         private string _bottom;
