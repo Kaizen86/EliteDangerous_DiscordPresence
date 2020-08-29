@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Somfic.Logging.Console;
 using Somfic.Logging.Console.Themes;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -99,6 +100,8 @@ namespace DiscordRPC_EliteDangerous
             {
                 public void StartJumpEvent(object s, StartJumpEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
+
                     //Occurs when a jump commences
                     if (e.JumpType == "Hyperspace")
                     {
@@ -110,17 +113,20 @@ namespace DiscordRPC_EliteDangerous
                 }
                 public void FSDJumpEvent(object s, FSDJumpEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     //Occurs when a jump concludes
                     discord.TopText = e.StarSystem;
                     discord.BottomText = "Just arrived";
                 }
                 public void SupercruiseEntryEvent(object s, SupercruiseEntryEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     discord.TopText = e.StarSystem;
                     discord.BottomText = "In Supercruise";
                 }
                 public void SupercruiseExitEvent(object s, SupercruiseExitEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     discord.TopText = e.StarSystem;
                     //If we drop near something (star, planet, space station), say what it is
                     if (e.Body == "") discord.BottomText = "In normal space"; //Otherwise, 
@@ -131,6 +137,7 @@ namespace DiscordRPC_EliteDangerous
             {
                 public void SelfDestructEvent(object s, SelfDestructEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     //"If I can't sell this cargo, then nobody can!"
                     discord.BottomText = "Self destructed";
                 }
@@ -139,36 +146,42 @@ namespace DiscordRPC_EliteDangerous
             {
                 public void RebootRepairEvent(object s, RebootRepairEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     discord.BottomText = "Rebooted ship";
                 }
                 //Limpet event maybe - "Being saved by Fuel Rats"
                 public void FuelScoopEvent(object s, FuelScoopEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     discord.BottomText = "Finished scooping fuel";
                 }
                 public void AfmuRepairsEvent(object s, AfmuRepairsEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     discord.BottomText = string.Format("Repaired {0} to {1}%", e.ModuleLocalised, System.Math.Round(e.Health * 100, 0));
                 }
-                public void DiedEvent(object s, DiedEvent e) {}
+                public void DiedEvent(object s, DiedEvent e) { }
             }
             public class Station
             {
                 bool docked = false;
-                public void DockingGrantedEvent(object s, DockingGrantedEvent e) 
+                public void DockingGrantedEvent(object s, DockingGrantedEvent e)
                 {
-                    discord.BottomText = "Docking at "+e.StationName;
+                    if (HasEventExpired(e.Timestamp)) return;
+                    discord.BottomText = "Docking at " + e.StationName;
                 }
-                public void DockedEvent(object s, DockedEvent e) 
+                public void DockedEvent(object s, DockedEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     docked = true;
                     discord.BottomText = "Docked at " + e.StationName;
                 }
-                public void UndockedEvent(object s, UndockedEvent e) 
+                public void UndockedEvent(object s, UndockedEvent e)
                 {
+                    if (HasEventExpired(e.Timestamp)) return;
                     docked = false;
                     discord.BottomText = "Leaving " + e.StationName;
-                } 
+                }
                 public void MusicEvent(object s, MusicEvent e)
                 {
                     //If using an autopilot, detect it with the music cue
@@ -195,28 +208,40 @@ namespace DiscordRPC_EliteDangerous
                 string BeforeMusicEvent = "";
                 public void MusicEvent(object s, MusicEvent e)
                 {
-                    if (BeforeMusicEvent.Length < 1) BeforeMusicEvent = discord.BottomText; //Only overwrite if it's empty - this prevents overwriting it before we read it back in the default case
                     switch (e.MusicTrack)
                     {
                         case "MainMenu":
-                            discord.BottomText = "In Main Menu";
+                                BeforeMusicEvent = discord.BottomText;
+                                discord.BottomText = "In Main Menu";
+
                             break;
                         case "Codex":
-                            discord.BottomText = "Reading the Codex";
+                                BeforeMusicEvent = discord.BottomText;
+                                discord.BottomText = "Reading the Codex";
                             break;
                         case "GalaxyMap":
-                            discord.BottomText = "Reading the Galaxy Map";
+                                BeforeMusicEvent = discord.BottomText;
+                                discord.BottomText = "Reading the Galaxy Map";
                             break;
                         case "SystemMap":
-                            discord.BottomText = "Reading the System Map";
+                                BeforeMusicEvent = discord.BottomText;
+                                discord.BottomText = "Reading the System Map";
                             break;
                         case "Exploration":
-                            //Once we return to flying the ship, we need to show that.
-                            discord.BottomText = BeforeMusicEvent; //Restore previous activity
-                            BeforeMusicEvent = ""; //Clear it again, ready for next time we enter a menu
+                            if (BeforeMusicEvent.Length > 0) //Check if the cause of the Exploration music event was a menu exit
+                            {
+                                //Once we return to flying the ship, we need to show that.
+                                discord.BottomText = BeforeMusicEvent; //Restore previous activity
+                                BeforeMusicEvent = ""; //Clear it again, ready for next time we enter a menu
+                            }
                             break;
                     }
                 }
+            }
+            static bool HasEventExpired(DateTime timestamp)
+            {
+                //Check if the provided timestamp is older than 24 hours, returning true if it is
+                return DateTime.Now.Subtract(timestamp).Hours > 24;
             }
 #pragma warning restore IDE0060 // Remove unused parameter 'object s'
         }
