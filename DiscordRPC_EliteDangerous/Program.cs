@@ -51,6 +51,13 @@ namespace DiscordRPC_EliteDangerous
 
             //Exploration - Star/planet scanning
 
+            //Mission events
+            GameEventHandlers.Mission tasks = new GameEventHandlers.Mission();
+            api.Events.MissionAbandonedEvent += tasks.MissionAbandonedEvent;
+            api.Events.MissionAcceptedEvent += tasks.MissionAcceptedEvent;
+            api.Events.MissionCompletedEvent += tasks.MissionCompletedEvent;
+            api.Events.MissionFailedEvent += tasks.MissionFailedEvent;
+            api.Events.MissionRedirectedEvent += tasks.MissionRedirectedEvent;
 
             //Combat - Interdiction, "Under attack", etc
             GameEventHandlers.Combat combat = new GameEventHandlers.Combat();
@@ -164,11 +171,13 @@ namespace DiscordRPC_EliteDangerous
                     if (HasEventExpired(e.Timestamp)) return;
                     discord.BottomText = "Failed a mission";
                 }
-                /*public void MissionRedirectedEvent(object s, MissionRedirectedEvent e)
+                public void MissionRedirectedEvent(object s, MissionRedirectedEvent e)
                 {
+                    /*
                     if (HasEventExpired(e.Timestamp)) return;
                     //"Incoming mission critical message"
-                }*/
+                    */
+                }
             }
             public class Ship
             {
