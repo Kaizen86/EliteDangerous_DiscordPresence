@@ -201,30 +201,32 @@ namespace DiscordRPC_EliteDangerous
             }
             public class Station
             {
-                bool docked = false;
+                bool docking = false; //whether we are docking or undocking
                 public void DockingGrantedEvent(object s, DockingGrantedEvent e)
                 {
                     if (HasEventExpired(e.Timestamp)) return;
+                    docking = true;
                     discord.BottomText = "Docking at " + e.StationName;
                 }
                 public void DockedEvent(object s, DockedEvent e)
                 {
                     if (HasEventExpired(e.Timestamp)) return;
-                    docked = true;
                     discord.BottomText = "Docked at " + e.StationName;
                 }
                 public void UndockedEvent(object s, UndockedEvent e)
                 {
                     if (HasEventExpired(e.Timestamp)) return;
-                    docked = false;
+                    docking = false;
                     discord.BottomText = "Leaving " + e.StationName;
                 }
+                bool JustUsedDockComputer = false;
                 public void MusicEvent(object s, MusicEvent e)
                 {
                     //If using an autopilot, detect it with the music cue
                     if (e.MusicTrack == "DockingComputer")
                     {
-                        if (docked)
+                        JustUsedDockComputer = true;
+                        if (docking)
                         {
                             discord.BottomText = "Autopilot docking";
                         }
@@ -232,6 +234,11 @@ namespace DiscordRPC_EliteDangerous
                         {
                             discord.BottomText = "Autopilot undocking";
                         }
+                    }
+                    else if (e.MusicTrack == "Exploration" && JustUsedDockComputer && !docking)
+                    {
+                        //Finished auto-undock from a station
+                        discord.BottomText = "Autopilot finished";
                     }
                 }
             }
