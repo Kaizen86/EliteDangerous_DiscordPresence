@@ -142,6 +142,34 @@ namespace DiscordRPC_EliteDangerous
                     discord.BottomText = "Self destructed";
                 }
             }
+            public class Mission
+            {
+                public void MissionAbandonedEvent(object s, MissionAbandonedEvent e)
+                {
+                    if (HasEventExpired(e.Timestamp)) return;
+                    discord.BottomText = "Abandoned a mission";
+                }
+                public void MissionAcceptedEvent(object s, MissionAcceptedEvent e)
+                {
+                    if (HasEventExpired(e.Timestamp)) return;
+                    discord.BottomText = "Accepted a mission";
+                }
+                public void MissionCompletedEvent(object s, MissionCompletedEvent e)
+                {
+                    if (HasEventExpired(e.Timestamp)) return;
+                    discord.BottomText = "Completed a mission";
+                }
+                public void MissionFailedEvent(object s, MissionFailedEvent e)
+                {
+                    if (HasEventExpired(e.Timestamp)) return;
+                    discord.BottomText = "Failed a mission";
+                }
+                /*public void MissionRedirectedEvent(object s, MissionRedirectedEvent e)
+                {
+                    if (HasEventExpired(e.Timestamp)) return;
+                    //"Incoming mission critical message"
+                }*/
+            }
             public class Ship
             {
                 public void RebootRepairEvent(object s, RebootRepairEvent e)
@@ -193,7 +221,7 @@ namespace DiscordRPC_EliteDangerous
                         }
                         else
                         {
-                            discord.BottomText = "Autopilot docking";
+                            discord.BottomText = "Autopilot undocking";
                         }
                     }
                 }
@@ -211,26 +239,26 @@ namespace DiscordRPC_EliteDangerous
                     switch (e.MusicTrack)
                     {
                         case "MainMenu":
-                                BeforeMusicEvent = discord.BottomText;
-                                discord.BottomText = "In Main Menu";
-
+                            BeforeMusicEvent = discord.BottomText;
+                            discord.BottomText = "In Main Menu";
                             break;
                         case "Codex":
-                                BeforeMusicEvent = discord.BottomText;
-                                discord.BottomText = "Reading the Codex";
+                            BeforeMusicEvent = discord.BottomText;
+                            discord.BottomText = "Reading the Codex";
                             break;
                         case "GalaxyMap":
-                                BeforeMusicEvent = discord.BottomText;
-                                discord.BottomText = "Reading the Galaxy Map";
+                            BeforeMusicEvent = discord.BottomText;
+                            discord.BottomText = "Reading the Galaxy Map";
                             break;
                         case "SystemMap":
-                                BeforeMusicEvent = discord.BottomText;
-                                discord.BottomText = "Reading the System Map";
+                            BeforeMusicEvent = discord.BottomText;
+                            discord.BottomText = "Reading the System Map";
                             break;
+
+                        case "Supercruise": //Also respond to supercruise music cues
                         case "Exploration":
-                            if (BeforeMusicEvent.Length > 0) //Check if the cause of the Exploration music event was a menu exit
+                            if (BeforeMusicEvent.Length > 0) //Check if the cause of the music event was a menu exit
                             {
-                                //Once we return to flying the ship, we need to show that.
                                 discord.BottomText = BeforeMusicEvent; //Restore previous activity
                                 BeforeMusicEvent = ""; //Clear it again, ready for next time we enter a menu
                             }
@@ -300,8 +328,8 @@ namespace DiscordRPC_EliteDangerous
                         LargeImageText = "Fly Dangerously!",
                         SmallImageKey = "edlogo" /*,
                         SmallImageText = "" */
-                    }
-                };
+            }
+        };
                 rpc.SetPresence(presence);
             }
         }
