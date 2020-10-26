@@ -10,7 +10,6 @@ using Somfic.Logging.Console.Themes;
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,7 +34,7 @@ namespace DiscordRPC_EliteDangerous
                 })
                 .ConfigureServices((context, service) =>
                 {
-                    service.AddEliteAPI<EliteDangerousAPI>();
+                    service.AddEliteAPI();
                 })
                 .Build();
 
